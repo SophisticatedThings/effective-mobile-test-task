@@ -1,44 +1,29 @@
 package artem.strelcov.postsservice.model;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.List;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@Entity
-@Table(name = "users")
-public class User implements UserDetails {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Integer id;
-    @Column(name = "username")
-    private String username;
-    @Column(name = "email")
-    private String email;
-    @Column(name = "password")
-    private String password;
-    @Column(name = "role")
-    private String role;
+public class CustomUserDetails implements UserDetails {
 
+    private String username;
+
+    public CustomUserDetails(String username){
+        this.username = username;
+    }
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role));
+        return null;
     }
 
     @Override
     public String getPassword() {
-        return password;
+        return null;
     }
 
     @Override
