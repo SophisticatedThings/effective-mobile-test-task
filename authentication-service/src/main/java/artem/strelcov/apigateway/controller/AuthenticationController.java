@@ -3,10 +3,13 @@ package artem.strelcov.apigateway.controller;
 import artem.strelcov.apigateway.dto.AuthenticationRequest;
 import artem.strelcov.apigateway.dto.AuthenticationResponse;
 import artem.strelcov.apigateway.dto.RegisterRequest;
+import artem.strelcov.apigateway.dto.UserDTO;
 import artem.strelcov.apigateway.service.AuthenticationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URISyntaxException;
 
 @RestController
 @RequestMapping("/api/authentication")
@@ -25,11 +28,13 @@ public class AuthenticationController {
     @PostMapping("/authenticate")
     public ResponseEntity<AuthenticationResponse> authenticate(
             @RequestBody AuthenticationRequest request
-    ) {
+    ){
         return ResponseEntity.ok(service.authenticate(request));
     }
-    @GetMapping
-    public ResponseEntity<String> test() {
-        return ResponseEntity.ok("inside auth");
-    }
+
+    /*@PostMapping("/testing")
+    public void authenticate(@RequestBody UserDTO userDTO)  {
+        service.testing(userDTO);
+    } */
+
 }
