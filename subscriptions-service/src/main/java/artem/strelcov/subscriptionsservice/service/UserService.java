@@ -1,16 +1,22 @@
 package artem.strelcov.subscriptionsservice.service;
 
-import artem.strelcov.subscriptionsservice.model.Subscription;
+import artem.strelcov.subscriptionsservice.dto.PostDto;
 import artem.strelcov.subscriptionsservice.model.User;
-import artem.strelcov.subscriptionsservice.repository.SubscriptionRepository;
 import artem.strelcov.subscriptionsservice.repository.UserRepository;
+import artem.strelcov.subscriptionsservice.util.*;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -18,7 +24,7 @@ import java.util.*;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final SubscriptionRepository subscriptionRepository;
+    private final WebClient.Builder webClient;
 
     public void replicateUser(String username) {
 
@@ -43,9 +49,11 @@ public class UserService {
 
         return userRepository.save(author);
     }
-    public Set<User> getSubscriptions(Principal user) {
-        User requestInitiator = getUserByUsername(user.getName());
-        return requestInitiator.getSubscriptions();
+    public List<String> getSubscriptions(String username) {
+        User requestInitiator = getUserByUsername(username);
+        return requestInitiator.getSubscriptions().stream()
+                .map(User::getUsername)
+                .collect(Collectors.toList());
     }
     private User getUserByUsername(String username) {
         return userRepository.findUserByUsername(username);
@@ -106,5 +114,66 @@ public class UserService {
             throw new RuntimeException();
         }
         return;
+    }
+
+    public List<PostDto> getRecentPosts(Principal user, String sortType, HttpServletRequest request) {
+
+        User requestInitiator = getUserByUsername(user.getName());
+        Set<User> subscriptions = requestInitiator.getSubscriptions();
+        List<PostDto> result = new ArrayList<>();
+        LocalDateTime currentTime = LocalDateTime.now();
+        String jwtToken = request.getHeader("Authorization").substring(7);
+        for(User author : subscriptions) {
+            PostDto [] posts = webClient.build().get()
+                    .uri("http://localhost:8090/api/posts/{username}",
+                            uriBuilder -> uriBuilder
+                                    .build(author.getUsername()))
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
+                    .retrieve()
+                    .bodyToMono(PostDto[].class)
+                    .block();
+            for(PostDto post : posts) {
+                if (ChronoUnit.HOURS.between(post.getCreatedAt(), currentTime) < 24) {
+                    result.add(post);
+                }
+            }
+        }
+        if(sortType != null && sortType.equals("oldFirst")) {
+            return result.stream()
+                    .sorted(new PostDtoOldFirstComparator())
+                    .collect(Collectors.toList());
+        }
+        else if(sortType != null && sortType.equals("newFirst")) {
+            return result.stream()
+                    .sorted(new PostDtoNewFirstComparator())
+                    .collect(Collectors.toList());
+        }
+        return result;
+    }
+
+    public RestResponsePage<PostDto> getRecentPostsWithPagination(
+            Principal user, HttpServletRequest request,
+             Integer offset, Integer limit, PostSort sort) {
+        User requestInitiator = getUserByUsername(user.getName());
+        String jwtToken = request.getHeader("Authorization").substring(7);
+        Page<PostDto> postsDtos =  webClient.build()
+                    .get()
+                    .uri("http://localhost:8090/api/posts/pagination",
+                            uriBuilder -> uriBuilder
+                                    .queryParam("offset", offset)
+                                    .queryParam("limit", limit)
+                                    .queryParam("sort", sort)
+                                    .build())
+                    .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Page<PostDto>>() {})
+                    .block();
+        return MapPageToRestResponsePage.map(postsDtos);
+}
+
+    private List<String> mapUserToUsername(Set<User> subscriptions) {
+        return subscriptions.stream()
+                .map(User::getUsername)
+                .collect(Collectors.toList());
     }
 }

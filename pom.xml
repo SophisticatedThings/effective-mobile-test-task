@@ -17,7 +17,6 @@
     <modules>
         <module>authentication-service</module>
         <module>posts-service</module>
-        <module>activity-feed-service</module>
         <module>subscriptions-service</module>
         <module>api-gateway</module>
         <module>discovery-server</module>

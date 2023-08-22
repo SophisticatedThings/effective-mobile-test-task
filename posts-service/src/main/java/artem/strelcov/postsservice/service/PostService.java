@@ -1,16 +1,27 @@
 package artem.strelcov.postsservice.service;
 
+import artem.strelcov.postsservice.dto.PostDto;
 import artem.strelcov.postsservice.model.ImageModel;
 import artem.strelcov.postsservice.model.Post;
 import artem.strelcov.postsservice.repository.PostRepository;
+import artem.strelcov.postsservice.util.MapPostToPostDto;
+import artem.strelcov.postsservice.util.MapToStringUrls;
+import artem.strelcov.postsservice.util.PostSort;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.errors.*;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -18,10 +29,12 @@ import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Service
 @Transactional
@@ -30,13 +43,27 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final MinioClient minioClient;
+    private final WebClient.Builder webClient;
 
     public List<Post> getAllPostsExceptMy(Principal user) {
         return postRepository.getAllPostsWhereUsernameNotInRequest(user.getName());
     }
-    public List<Post> getPostsByUsername(String username) {
-        return postRepository.getPostsByUsername(username);
+    public List<PostDto> getPostsByUsername(String username) {
+        return postRepository.getPostsByUsername(username).stream()
+                .map(post ->
+                        PostDto.builder()
+                                .title(post.getTitle())
+                                .username(post.getUsername())
+                                .content(post.getContent())
+                                .createdAt(post.getCreatedAt())
+                                .postImages(MapToStringUrls.map(post.getPostImages()))
+                                .build()
+                )
+                .toList();
+
+
     }
+
     public Post updatePost(Integer id,Post post,MultipartFile [] images,
                            Principal user) {
         if (!Objects.equals(getPostById(id).getUsername(), user.getName())) {
@@ -59,6 +86,7 @@ public class PostService {
         post.setPostImages(new ArrayList<>(images.length));
         addImagesToMinioAndPost(images, post);
         fillPostWithUsername(post, user);
+        post.setCreatedAt(LocalDateTime.now());
         postRepository.save(post);
         return post;
 
@@ -117,4 +145,30 @@ public class PostService {
         post.setUsername(user.getName());
     }
 
+    public Page<PostDto> getPostsBySubscriptionsWithPagination(HttpServletRequest request,Principal user, Integer offset, Integer limit, PostSort sort) {
+        List<String> subscriptions = getSubscriptionsOfUser(request, user.getName());
+        if(sort != null) {
+            Page<Post> posts = postRepository.findAllByUsernameIn(
+                    subscriptions,
+                    PageRequest.of(offset,limit,sort.getSortValue()));
+
+            return posts.map(new MapPostToPostDto());
+        }
+        return postRepository.findAllByUsernameIn(
+                subscriptions,
+                PageRequest.of(offset,limit))
+                        .map(new MapPostToPostDto());
+    }
+
+    private List<String> getSubscriptionsOfUser(HttpServletRequest request, String username) {
+        String jwtToken = request.getHeader("Authorization").substring(7);
+        return webClient.build().get()
+                .uri("http://localhost:8085/api/subscriptions/{username}",
+                        uriBuilder -> uriBuilder
+                                .build(username))
+                .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<String>>() {})
+                .block();
+    }
 }

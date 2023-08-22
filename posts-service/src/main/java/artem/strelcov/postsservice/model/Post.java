@@ -3,6 +3,7 @@ package artem.strelcov.postsservice.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -20,6 +21,8 @@ public class Post {
     private String content;
     @Column(name = "username")
     private String username;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
     @OneToMany( cascade = CascadeType.ALL)
     @JoinTable(name = "posts_images",
             joinColumns = {
