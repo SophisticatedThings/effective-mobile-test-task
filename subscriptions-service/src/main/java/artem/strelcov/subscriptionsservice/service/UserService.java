@@ -1,13 +1,14 @@
 package artem.strelcov.subscriptionsservice.service;
 
 import artem.strelcov.subscriptionsservice.dto.PostDto;
+import artem.strelcov.subscriptionsservice.exception_handling.NoPostsException;
+import artem.strelcov.subscriptionsservice.exception_handling.NotFriendsException;
 import artem.strelcov.subscriptionsservice.model.User;
 import artem.strelcov.subscriptionsservice.repository.UserRepository;
 import artem.strelcov.subscriptionsservice.util.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -33,21 +34,24 @@ public class UserService {
                 .build();
         userRepository.save(user);
     }
-
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
     public void subscribe(Principal user, Integer authorId) {
         User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId);
+        User author = getUserById(authorId).orElseThrow(() ->
+                new NoSuchElementException(
+                "Пользователя с таким id не существует"));
         author.getSubscribers().add(requestInitiator);
         userRepository.save(author);
-
-
     }
-    public User unsubscribe(Principal user, Integer authorId) {
+    public void unsubscribe(Principal user, Integer authorId) {
         User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId);
+        User author = getUserById(authorId).orElseThrow(() ->
+                new NoSuchElementException(
+                        "Пользователя с таким id не существует"));
         author.getSubscribers().remove(requestInitiator);
-
-        return userRepository.save(author);
+        userRepository.save(author);
     }
     public List<String> getSubscriptions(String username) {
         User requestInitiator = getUserByUsername(username);
@@ -55,30 +59,25 @@ public class UserService {
                 .map(User::getUsername)
                 .collect(Collectors.toList());
     }
-    private User getUserByUsername(String username) {
-        return userRepository.findUserByUsername(username);
-    }
-    private User getUserById(Integer id) {
-        return userRepository.findById(id).get();
-
-    }
-
-    public User sendFriendshipRequest(Principal user, Integer authorId) {
+    public void sendFriendshipRequest(Principal user, Integer authorId) {
         subscribe(user, authorId);
         User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId);
+        User author = getUserById(authorId).orElseThrow(() ->
+                new NoSuchElementException(
+                        "Пользователя с таким id не существует"));
         author.getFriendshipRequests().add(requestInitiator);
-        return userRepository.save(author);
+        userRepository.save(author);
     }
-
     public Set<User> getFriendshipRequests(Principal user) {
         User requestInitiator = getUserByUsername(user.getName());
         return requestInitiator.getFriendshipRequests();
     }
-
-    public boolean acceptOrDeclineRequest(Principal user, Boolean acceptRequest, Integer senderId) {
+    public boolean acceptOrDeclineRequest(
+            Principal user, Boolean acceptRequest, Integer senderId) {
         User requestInitiator = getUserByUsername(user.getName());
-        User friendshipRequestSender = getUserById(senderId);
+        User friendshipRequestSender = getUserById(senderId).orElseThrow(() ->
+                new NoSuchElementException(
+                        "Пользователя с таким id не существует"));
         if(!acceptRequest){
             requestInitiator.getFriendshipRequests().remove(friendshipRequestSender);
             userRepository.save(requestInitiator);
@@ -91,32 +90,31 @@ public class UserService {
         userRepository.save(requestInitiator);
         return true;
     }
-
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
     public void deleteFromFriends(Principal user, Integer friendId) {
         User requestInitiator = getUserByUsername(user.getName());
-        User friend = getUserById(friendId);
-        requestInitiator.getFriends().remove(getUserById(friendId));
+        User friend = getUserById(friendId).orElseThrow(() ->
+                new NoSuchElementException(
+                        "Пользователя с таким id не существует"));
+        requestInitiator.getFriends().remove(friend);
         friend.getSubscribers().remove(requestInitiator);
         userRepository.save(requestInitiator);
         userRepository.save(friend);
     }
-
     public void createChat(Principal user, Integer companionId) {
         User requestInitiator = getUserByUsername(user.getName());
-        User companion = getUserById(companionId);
-        boolean isContainsCompanion = requestInitiator.getFriends().contains(companion);
-        boolean isContainsInitiator = companion.getFriends().contains(requestInitiator);
+        User companion = getUserById(companionId).orElseThrow(() ->
+                new NoSuchElementException(
+                        "Пользователя с таким id не существует"));
+        boolean isContainsCompanion =
+                requestInitiator.getFriends().contains(companion);
+        boolean isContainsInitiator =
+                companion.getFriends().contains(requestInitiator);
         if(!(isContainsCompanion && isContainsInitiator)) {
-            throw new RuntimeException();
+            throw new NotFriendsException("Вы не являетесь другом пользователя");
         }
-        return;
     }
-
-    public List<PostDto> getRecentPosts(Principal user, String sortType, HttpServletRequest request) {
+    public List<PostDto> getRecentPosts(
+            Principal user, String sortType, HttpServletRequest request) {
 
         User requestInitiator = getUserByUsername(user.getName());
         Set<User> subscriptions = requestInitiator.getSubscriptions();
@@ -132,6 +130,10 @@ public class UserService {
                     .retrieve()
                     .bodyToMono(PostDto[].class)
                     .block();
+            if(posts == null) {
+                throw new NoPostsException("Пользователи,на которых Вы подписаны," +
+                        "не публиковали новых постов");
+            }
             for(PostDto post : posts) {
                 if (ChronoUnit.HOURS.between(post.getCreatedAt(), currentTime) < 24) {
                     result.add(post);
@@ -150,30 +152,30 @@ public class UserService {
         }
         return result;
     }
-
     public RestResponsePage<PostDto> getRecentPostsWithPagination(
-            Principal user, HttpServletRequest request,
+             HttpServletRequest request,
              Integer offset, Integer limit, PostSort sort) {
-        User requestInitiator = getUserByUsername(user.getName());
-        String jwtToken = request.getHeader("Authorization").substring(7);
-        Page<PostDto> postsDtos =  webClient.build()
-                    .get()
-                    .uri("http://localhost:8090/api/posts/pagination",
-                            uriBuilder -> uriBuilder
-                                    .queryParam("offset", offset)
-                                    .queryParam("limit", limit)
-                                    .queryParam("sort", sort)
-                                    .build())
-                    .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<Page<PostDto>>() {})
-                    .block();
-        return MapPageToRestResponsePage.map(postsDtos);
-}
 
-    private List<String> mapUserToUsername(Set<User> subscriptions) {
-        return subscriptions.stream()
-                .map(User::getUsername)
-                .collect(Collectors.toList());
+        String jwtToken = request.getHeader("Authorization").substring(7);
+        return webClient.build()
+                .get()
+                .uri("http://localhost:8090/api/posts/pagination",
+                        uriBuilder -> uriBuilder
+                                .queryParam("offset", offset)
+                                .queryParam("limit", limit)
+                                .queryParam("sort", sort)
+                                .build())
+                .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<RestResponsePage<PostDto>>() {
+                })
+                .block();
     }
+    private User getUserByUsername(String username) {
+        return userRepository.findUserByUsername(username);
+    }
+    private Optional<User> getUserById(Integer id) {
+        return userRepository.findById(id);
+    }
+
 }

@@ -8,11 +8,9 @@ import artem.strelcov.subscriptionsservice.util.PostSort;
 import artem.strelcov.subscriptionsservice.util.RestResponsePage;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 import java.util.List;
@@ -35,13 +33,16 @@ public class SubscriptionsController {
         return new ResponseEntity<List<User>>(userService.getAllUsers(), HttpStatus.OK);
     }
     @PutMapping("/subscribe/{authorId}")
-    public ResponseEntity<String> subscribe(Principal user, @PathVariable Integer authorId) {
+    public ResponseEntity<String> subscribe(
+            Principal user,
+            @PathVariable Integer authorId) {
         userService.subscribe(user, authorId);
         return new ResponseEntity<String>("вы успешно подписались", HttpStatus.OK);
     }
     @PutMapping("/unsubscribe/{author_id}")
-    public ResponseEntity<String> unsubscribe(Principal user,
-                                              @PathVariable("author_id") Integer authorId) {
+    public ResponseEntity<String> unsubscribe(
+            Principal user,
+            @PathVariable("author_id") Integer authorId) {
         userService.unsubscribe(user, authorId);
         return new ResponseEntity<String>("Вы успешно отписались", HttpStatus.OK);
     }
@@ -51,28 +52,38 @@ public class SubscriptionsController {
     }
 
     @PutMapping("/send-friendship-request/{author_id}")
-    public ResponseEntity<String> sendFriendshipRequest(Principal user, @PathVariable("author_id") Integer authorId) {
+    public ResponseEntity<String> sendFriendshipRequest(
+            Principal user,
+            @PathVariable("author_id") Integer authorId) {
         userService.sendFriendshipRequest(user,authorId);
         return new ResponseEntity<String>("Вы отправили заявку в друзья", HttpStatus.OK);
 
     }
     @GetMapping("/friendship-requests")
     public ResponseEntity<Set<User>> getFriendshipRequests(Principal user) {
-        return new ResponseEntity<Set<User>>(userService.getFriendshipRequests(user), HttpStatus.OK);
+        return new ResponseEntity<Set<User>>(
+                userService.getFriendshipRequests(user), HttpStatus.OK);
     }
     @PutMapping("/friendship-requests/{sender_id}")
-    public ResponseEntity<Boolean> acceptOrDeclineRequest(Principal user, @RequestParam("acceptRequest") Boolean acceptRequest,
-                                                          @PathVariable("sender_id") Integer senderId) {
-        return new ResponseEntity<Boolean>(userService.acceptOrDeclineRequest(user,acceptRequest,senderId), HttpStatus.OK);
+    public ResponseEntity<Boolean> acceptOrDeclineRequest(
+            Principal user,
+            @RequestParam("acceptRequest") Boolean acceptRequest,
+            @PathVariable("sender_id") Integer senderId) {
+        return new ResponseEntity<Boolean>(userService.acceptOrDeclineRequest(
+                user,acceptRequest,senderId), HttpStatus.OK);
     }
     @DeleteMapping("/friendships/{friend_id}")
-    public ResponseEntity<String> deleteFromFriends(Principal user, @PathVariable("friend_id") Integer friendId) {
+    public ResponseEntity<String> deleteFromFriends(
+            Principal user,
+            @PathVariable("friend_id") Integer friendId) {
         userService.deleteFromFriends(user,friendId);
-        return new ResponseEntity<String>("Пользователь успешно удален из списка друзей", HttpStatus.OK);
+        return new ResponseEntity<String>(
+                "Пользователь успешно удален из списка друзей", HttpStatus.OK);
     }
-
     @GetMapping("/chat/{companion_id}")
-    public ResponseEntity<String> getChat(Principal user, @PathVariable("companion_id") Integer companionId) {
+    public ResponseEntity<String> getChat(
+            Principal user,
+            @PathVariable("companion_id") Integer companionId) {
         userService.createChat(user,companionId);
         return new ResponseEntity<String>("Чат успешно создан", HttpStatus.OK);
     }
@@ -81,19 +92,18 @@ public class SubscriptionsController {
             Principal user,
             @RequestParam(required = false, value = "sortType") String sortType,
             HttpServletRequest request) {
-        return new ResponseEntity<List<PostDto>>(userService.getRecentPosts(user,sortType,request), HttpStatus.OK);
+        return new ResponseEntity<List<PostDto>>(
+                userService.getRecentPosts(user,sortType,request), HttpStatus.OK);
     }
     @GetMapping("/recent_posts/pagination")
-    public ResponseEntity<RestResponsePage<PostDto>> getRecentPostsWithPagination(
-            Principal user,
+    public RestResponsePage<PostDto> getRecentPostsWithPagination(
             HttpServletRequest request,
             @RequestParam("offset") Integer offset,
             @RequestParam("limit") Integer limit,
             @RequestParam(required = false, value = "sort") PostSort sort
     ) {
-        return new ResponseEntity<RestResponsePage<PostDto>>(
-                userService.getRecentPostsWithPagination(
-                        user, request,offset,limit,sort),HttpStatus.OK);
+        return userService.getRecentPostsWithPagination(
+                request,offset,limit,sort);
     }
 
 }

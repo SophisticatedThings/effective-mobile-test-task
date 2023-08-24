@@ -26,7 +26,6 @@ public class MinioConfig {
 
     @Value("${minio.bucketName}")
     private String bucketName;
-
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()
@@ -36,12 +35,14 @@ public class MinioConfig {
     }
     @Bean
     public void initBucketIfDoesntExist() throws ServerException, InsufficientDataException,
-            ErrorResponseException, IOException, NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException,
+            ErrorResponseException, IOException,
+            NoSuchAlgorithmException, InvalidKeyException, InvalidResponseException,
             XmlParserException, InternalException {
 
         MinioClient minioClient = minioClient();
 
-        if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build())) {
+        if (!minioClient.bucketExists(BucketExistsArgs.builder()
+                .bucket(bucketName).build())) {
             minioClient.makeBucket(
                     MakeBucketArgs.builder()
                             .bucket(bucketName)

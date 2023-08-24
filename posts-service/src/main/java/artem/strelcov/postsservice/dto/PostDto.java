@@ -11,7 +11,7 @@ import java.util.List;
 @Data
 @Builder
 public class PostDto {
-
+    private Integer id;
     private String title;
     private String content;
     private String username;

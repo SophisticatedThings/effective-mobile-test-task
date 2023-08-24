@@ -3,12 +3,12 @@ package artem.strelcov.apigateway.service;
 import artem.strelcov.apigateway.dto.AuthenticationRequest;
 import artem.strelcov.apigateway.dto.AuthenticationResponse;
 import artem.strelcov.apigateway.dto.RegisterRequest;
-import artem.strelcov.apigateway.dto.UserDTO;
+import artem.strelcov.apigateway.dto.UserDto;
+import artem.strelcov.apigateway.exception_handling.UserHandling.UsernameNotFoundException;
 import artem.strelcov.apigateway.model.User;
 import artem.strelcov.apigateway.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,13 +21,17 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-    private final UserRepository repository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final WebClient.Builder webClient;
 
-    public AuthenticationResponse register(RegisterRequest request) {
+    /**
+     * Функция создает пользователя. Webclient используется для того, чтобы
+     * создать копию учетных данных для другого сервиса - subscriptions. Он будет их использовать
+     * для большинства функционала. Подробнее смотрите сам сервис.
+     */
+    public void register(RegisterRequest request) {
 
         var user = User.builder()
                 .username(request.getUsername())
@@ -35,45 +39,41 @@ public class AuthenticationService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role("USER")
                 .build();
-        repository.save(user);
-        var jwtToken = jwtService.generateToken(user);
-        var userDto = UserDTO.builder().username(request.getUsername()).build();
+        userRepository.save(user);
 
-        WebClient.create("http://localhost:8085/api/subscriptions/replicate").post()
+        var jwtToken = jwtService.generateToken(user);
+
+        WebClient.create("http://localhost:8085/api/subscriptions/replicate")
+                .post()
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
-                .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
-                .body(Mono.just(UserDTO.builder().username(request.getUsername()).build()), UserDTO.class)
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Mono.just(UserDto.builder()
+                        .username(request.getUsername()).build()), UserDto.class)
                 .retrieve()
                 .bodyToMono(void.class)
                 .block();
 
-        return AuthenticationResponse.builder()
-                .accessToken(jwtToken)
-                .build();
     }
-
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
                         request.getPassword()
                 )
         );
-        var user = repository.findUserByUsername(request.getUsername())
-                .orElseThrow();
+
+        var user = userRepository.findUserByUsername(request.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Неправильный username"));
+
         var jwtToken = jwtService.generateToken(user);
 
         return AuthenticationResponse.builder()
                 .accessToken(jwtToken)
+                .message("Используйте данный токен для любого запроса от лица данного пользователя")
                 .build();
     }
 
-    public void testing(UserDTO userDTO) {
-        WebClient.create("http://localhost:8085/api/subscriptions/replicate").post()
-                .accept(MediaType.APPLICATION_JSON).contentType(MediaType.APPLICATION_JSON)
-                .body(Mono.just(UserDTO.builder().username("artem").build()), UserDTO.class)
-                .retrieve()
-                .bodyToMono(ResponseEntity.class)
-                .block();
-    }
 }

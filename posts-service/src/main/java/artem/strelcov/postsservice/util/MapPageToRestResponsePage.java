@@ -1,7 +1,7 @@
-package artem.strelcov.subscriptionsservice.util;
+package artem.strelcov.postsservice.util;
 
 
-import artem.strelcov.subscriptionsservice.dto.PostDto;
+import artem.strelcov.postsservice.dto.PostDto;
 import org.springframework.data.domain.Page;
 
 public class MapPageToRestResponsePage {
