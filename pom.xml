@@ -18,8 +18,8 @@
         <module>authentication-service</module>
         <module>posts-service</module>
         <module>subscriptions-service</module>
-        <module>api-gateway</module>
         <module>discovery-server</module>
+        <module>api-gateway</module>
     </modules>
 
     <properties>
@@ -46,7 +46,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
     <build>
         <plugins>
             <plugin>

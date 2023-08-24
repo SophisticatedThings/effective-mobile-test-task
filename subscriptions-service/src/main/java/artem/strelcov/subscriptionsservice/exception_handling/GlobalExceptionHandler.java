@@ -18,4 +18,20 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(data, HttpStatus.BAD_REQUEST);
 
     }
+    @ExceptionHandler
+    public ResponseEntity<IncorrectData> notFriendsException(
+            NotFriendsException e){
+        IncorrectData data = new IncorrectData();
+        data.setInformation(e.getMessage());
+        return new ResponseEntity<>(data, HttpStatus.BAD_REQUEST);
+
+    }
+    @ExceptionHandler
+    public ResponseEntity<IncorrectData> noPostsException(
+            NoPostsException e){
+        IncorrectData data = new IncorrectData();
+        data.setInformation(e.getMessage());
+        return new ResponseEntity<>(data, HttpStatus.BAD_REQUEST);
+
+    }
 }

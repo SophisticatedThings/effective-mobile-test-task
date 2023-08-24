@@ -4,6 +4,7 @@ import artem.strelcov.apigateway.dto.AuthenticationRequest;
 import artem.strelcov.apigateway.dto.AuthenticationResponse;
 import artem.strelcov.apigateway.dto.RegisterRequest;
 import artem.strelcov.apigateway.dto.UserDto;
+import artem.strelcov.apigateway.exception_handling.UserHandling.NotUniqueUsernameException;
 import artem.strelcov.apigateway.exception_handling.UserHandling.UsernameNotFoundException;
 import artem.strelcov.apigateway.model.User;
 import artem.strelcov.apigateway.repository.UserRepository;
@@ -15,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+
+import java.util.Optional;
 
 
 @Service
@@ -32,7 +35,11 @@ public class AuthenticationService {
      * для большинства функционала. Подробнее смотрите сам сервис.
      */
     public void register(RegisterRequest request) {
-
+        Optional<User> userCheck = userRepository
+                .findUserByUsername(request.getUsername());
+        if(userCheck.isPresent()) {
+            throw new NotUniqueUsernameException("username занят, пожалуйста, введите другой");
+        }
         var user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -43,7 +50,7 @@ public class AuthenticationService {
 
         var jwtToken = jwtService.generateToken(user);
 
-        WebClient.create("http://localhost:8085/api/subscriptions/replicate")
+        WebClient.create("subscriptions-service/api/subscriptions/replicate")
                 .post()
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
                 .accept(MediaType.APPLICATION_JSON)
@@ -75,5 +82,4 @@ public class AuthenticationService {
                 .message("Используйте данный токен для любого запроса от лица данного пользователя")
                 .build();
     }
-
 }

@@ -1,5 +1,6 @@
 package artem.strelcov.apigateway.exception_handling;
 
+import artem.strelcov.apigateway.exception_handling.UserHandling.NotUniqueUsernameException;
 import artem.strelcov.apigateway.exception_handling.UserHandling.UsernameNotFoundException;
 import artem.strelcov.apigateway.exception_handling.validation.ValidationErrorResponse;
 import artem.strelcov.apigateway.exception_handling.validation.Violation;
@@ -48,6 +49,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler
     public ResponseEntity<IncorrectData> usernameNotFoundException(
             UsernameNotFoundException e){
+        IncorrectData data = new IncorrectData();
+        data.setInformation(e.getMessage());
+        return new ResponseEntity<>(data, HttpStatus.BAD_REQUEST);
+
+    }
+    @ExceptionHandler
+    public ResponseEntity<IncorrectData> notUniqueUsernameException(
+            NotUniqueUsernameException e){
         IncorrectData data = new IncorrectData();
         data.setInformation(e.getMessage());
         return new ResponseEntity<>(data, HttpStatus.BAD_REQUEST);

@@ -1,6 +1,7 @@
 package artem.strelcov.postsservice.service;
 
 import artem.strelcov.postsservice.dto.PostDto;
+import artem.strelcov.postsservice.dto.PostRequest;
 import artem.strelcov.postsservice.exception_handling.validation.GetPostsException;
 import artem.strelcov.postsservice.exception_handling.validation.UpdatePostException;
 import artem.strelcov.postsservice.model.ImageModel;
@@ -40,14 +41,16 @@ public class PostServiceImpl implements PostService{
     private final MinioClient minioClient;
     private final WebClient.Builder webClient;
 
-    public Post createPost(MultipartFile [] images,
-                           Post post, Principal user) {
-
+    public Post createPost(List<MultipartFile> images,
+                           PostRequest postRequest, Principal user) {
+        Post post = new Post();
         post.setPostImages(new ArrayList<>());
         if(images != null)
             addImagesToMinioAndPost(images, post);
         post.setUsername(user.getName());
         post.setCreatedAt(LocalDateTime.now());
+        post.setTitle(postRequest.getTitle());
+        post.setContent(postRequest.getContent());
         postRepository.save(post);
         return post;
 
@@ -79,6 +82,11 @@ public class PostServiceImpl implements PostService{
                 )
                 .toList();
     }
+    public void deletePost(Integer id, Principal user) {
+        validatePostIdAndOwner(id,user);
+        postRepository.deleteById(id);
+    }
+
     /**
      * Метод возвращает объект Page, который содержит в себе список постов каждого
      * пользователя, на которого подписан Principal, вызвавший данный метод
@@ -117,22 +125,18 @@ public class PostServiceImpl implements PostService{
      * Метод позволяет изменить title, content конкретного поста с параметром id.
      * Кроме того, метод позволяет вместе с этим добавить новые изображения в пост.
      */
-    public Post updatePost(Integer id,Post post,MultipartFile [] images,
+    public Post updatePost(Integer postId,PostRequest postRequest
+            ,List<MultipartFile> images,
                            Principal user) {
 
-        Post postToUpdate = validatePostIdAndOwner(id,user);
-        postToUpdate.setTitle(post.getTitle());
-        postToUpdate.setContent(post.getContent());
+        Post postToUpdate = validatePostIdAndOwner(postId,user);
+        postToUpdate.setTitle(postRequest.getTitle());
+        postToUpdate.setContent(postRequest.getContent());
         if(images != null)
             addImagesToMinioAndPost(images,postToUpdate);
 
         return postRepository.save(postToUpdate);
     }
-    public void deletePost(Integer id, Principal user) {
-        validatePostIdAndOwner(id,user);
-        postRepository.deleteById(id);
-    }
-
     /**
      * Метод проверяет, существует ли пост с id, и принадлежит ли он пользователю user
      */
@@ -159,7 +163,7 @@ public class PostServiceImpl implements PostService{
      * Метод загружает на сервер Minio фотографии для поста post(с шифрованием имени файла)
      * и добавляет информацию о добавленных фотографиях в post
      */
-    private void addImagesToMinioAndPost(MultipartFile [] images, Post post) {
+    private void addImagesToMinioAndPost(List<MultipartFile> images, Post post) {
         for(MultipartFile image : images) {
             String imageName = generateImageName(image);
 
@@ -219,7 +223,7 @@ public class PostServiceImpl implements PostService{
 
         String jwtToken = request.getHeader("Authorization").substring(7);
         return webClient.build().get()
-                .uri("http://localhost:8085/api/subscriptions/{username}",
+                .uri("subscriptions-service/api/subscriptions/{username}",
                         uriBuilder -> uriBuilder
                                 .build(username))
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))

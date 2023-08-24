@@ -21,10 +21,11 @@ public interface PostService {
      * Метод позволяет изменить title, content конкретного поста с параметром id.
      * Кроме того, метод позволяет вместе с этим добавить новые изображения в пост.
      */
-    public Post updatePost(Integer id, Post post, MultipartFile[] images, Principal user);
+    public Post updatePost(Integer postId, PostRequest postRequest,
+                           List<MultipartFile> images, Principal user);
     public void deletePost(Integer id, Principal user);
-    public Post createPost(MultipartFile [] images,
-                           Post post, Principal user);
+    public Post createPost(List<MultipartFile> images,
+                           PostRequest postRequest, Principal user);
 
     /**
      * Метод возвращает объект Page, который содержит в себе список постов каждого

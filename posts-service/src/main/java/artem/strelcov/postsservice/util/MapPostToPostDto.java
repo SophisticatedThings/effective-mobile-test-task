@@ -10,6 +10,7 @@ public class MapPostToPostDto implements Function<Post, PostDto> {
     @Override
     public PostDto apply(Post post) {
         return PostDto.builder()
+                .id(post.getId())
                 .title(post.getTitle())
                 .username(post.getUsername())
                 .content(post.getContent())

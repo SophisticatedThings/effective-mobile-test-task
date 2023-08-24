@@ -4,7 +4,7 @@ volumes:
     driver: local
 
 services:
-
+  ## Minio config
   minio:
     image: minio/minio:latest
     container_name: minio

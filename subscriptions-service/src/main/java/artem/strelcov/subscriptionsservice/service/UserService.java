@@ -1,181 +1,32 @@
 package artem.strelcov.subscriptionsservice.service;
 
 import artem.strelcov.subscriptionsservice.dto.PostDto;
-import artem.strelcov.subscriptionsservice.exception_handling.NoPostsException;
-import artem.strelcov.subscriptionsservice.exception_handling.NotFriendsException;
 import artem.strelcov.subscriptionsservice.model.User;
-import artem.strelcov.subscriptionsservice.repository.UserRepository;
-import artem.strelcov.subscriptionsservice.util.*;
+import artem.strelcov.subscriptionsservice.util.PostSort;
+import artem.strelcov.subscriptionsservice.util.RestResponsePage;
+import artem.strelcov.subscriptionsservice.util.SortType;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import java.security.Principal;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Set;
 
-@Service
-@Transactional
-@RequiredArgsConstructor
-public class UserService {
-
-    private final UserRepository userRepository;
-    private final WebClient.Builder webClient;
-
-    public void replicateUser(String username) {
-
-        var user = User.builder()
-                .username(username)
-                .build();
-        userRepository.save(user);
-    }
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-    public void subscribe(Principal user, Integer authorId) {
-        User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId).orElseThrow(() ->
-                new NoSuchElementException(
-                "Пользователя с таким id не существует"));
-        author.getSubscribers().add(requestInitiator);
-        userRepository.save(author);
-    }
-    public void unsubscribe(Principal user, Integer authorId) {
-        User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId).orElseThrow(() ->
-                new NoSuchElementException(
-                        "Пользователя с таким id не существует"));
-        author.getSubscribers().remove(requestInitiator);
-        userRepository.save(author);
-    }
-    public List<String> getSubscriptions(String username) {
-        User requestInitiator = getUserByUsername(username);
-        return requestInitiator.getSubscriptions().stream()
-                .map(User::getUsername)
-                .collect(Collectors.toList());
-    }
-    public void sendFriendshipRequest(Principal user, Integer authorId) {
-        subscribe(user, authorId);
-        User requestInitiator = getUserByUsername(user.getName());
-        User author = getUserById(authorId).orElseThrow(() ->
-                new NoSuchElementException(
-                        "Пользователя с таким id не существует"));
-        author.getFriendshipRequests().add(requestInitiator);
-        userRepository.save(author);
-    }
-    public Set<User> getFriendshipRequests(Principal user) {
-        User requestInitiator = getUserByUsername(user.getName());
-        return requestInitiator.getFriendshipRequests();
-    }
+public interface UserService {
+    public void replicateUser(String username);
+    public List<User> getAllUsers();
+    public void subscribe(Principal user, Integer authorId);
+    public void unsubscribe(Principal user, Integer authorId);
+    public List<String> getSubscriptions(String username);
+    public void sendFriendshipRequest(Principal user, Integer authorId);
+    public Set<User> getFriendshipRequests(Principal user);
+    public Set<User> getFriends(Principal user);
     public boolean acceptOrDeclineRequest(
-            Principal user, Boolean acceptRequest, Integer senderId) {
-        User requestInitiator = getUserByUsername(user.getName());
-        User friendshipRequestSender = getUserById(senderId).orElseThrow(() ->
-                new NoSuchElementException(
-                        "Пользователя с таким id не существует"));
-        if(!acceptRequest){
-            requestInitiator.getFriendshipRequests().remove(friendshipRequestSender);
-            userRepository.save(requestInitiator);
-            return false;
-        }
-        friendshipRequestSender.getSubscribers().add(requestInitiator);
-        userRepository.save(friendshipRequestSender);
-        requestInitiator.getFriends().add(friendshipRequestSender);
-        requestInitiator.getFriendshipRequests().remove(friendshipRequestSender);
-        userRepository.save(requestInitiator);
-        return true;
-    }
-    public void deleteFromFriends(Principal user, Integer friendId) {
-        User requestInitiator = getUserByUsername(user.getName());
-        User friend = getUserById(friendId).orElseThrow(() ->
-                new NoSuchElementException(
-                        "Пользователя с таким id не существует"));
-        requestInitiator.getFriends().remove(friend);
-        friend.getSubscribers().remove(requestInitiator);
-        userRepository.save(requestInitiator);
-        userRepository.save(friend);
-    }
-    public void createChat(Principal user, Integer companionId) {
-        User requestInitiator = getUserByUsername(user.getName());
-        User companion = getUserById(companionId).orElseThrow(() ->
-                new NoSuchElementException(
-                        "Пользователя с таким id не существует"));
-        boolean isContainsCompanion =
-                requestInitiator.getFriends().contains(companion);
-        boolean isContainsInitiator =
-                companion.getFriends().contains(requestInitiator);
-        if(!(isContainsCompanion && isContainsInitiator)) {
-            throw new NotFriendsException("Вы не являетесь другом пользователя");
-        }
-    }
+            Principal user, Boolean acceptRequest, Integer senderId);
+    public void deleteFromFriends(Principal user, Integer friendId);
+    public void createChat(Principal user, Integer companionId);
     public List<PostDto> getRecentPosts(
-            Principal user, String sortType, HttpServletRequest request) {
-
-        User requestInitiator = getUserByUsername(user.getName());
-        Set<User> subscriptions = requestInitiator.getSubscriptions();
-        List<PostDto> result = new ArrayList<>();
-        LocalDateTime currentTime = LocalDateTime.now();
-        String jwtToken = request.getHeader("Authorization").substring(7);
-        for(User author : subscriptions) {
-            PostDto [] posts = webClient.build().get()
-                    .uri("http://localhost:8090/api/posts/{username}",
-                            uriBuilder -> uriBuilder
-                                    .build(author.getUsername()))
-                    .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
-                    .retrieve()
-                    .bodyToMono(PostDto[].class)
-                    .block();
-            if(posts == null) {
-                throw new NoPostsException("Пользователи,на которых Вы подписаны," +
-                        "не публиковали новых постов");
-            }
-            for(PostDto post : posts) {
-                if (ChronoUnit.HOURS.between(post.getCreatedAt(), currentTime) < 24) {
-                    result.add(post);
-                }
-            }
-        }
-        if(sortType != null && sortType.equals("oldFirst")) {
-            return result.stream()
-                    .sorted(new PostDtoOldFirstComparator())
-                    .collect(Collectors.toList());
-        }
-        else if(sortType != null && sortType.equals("newFirst")) {
-            return result.stream()
-                    .sorted(new PostDtoNewFirstComparator())
-                    .collect(Collectors.toList());
-        }
-        return result;
-    }
+            Principal user, SortType sortType, HttpServletRequest request);
     public RestResponsePage<PostDto> getRecentPostsWithPagination(
-             HttpServletRequest request,
-             Integer offset, Integer limit, PostSort sort) {
-
-        String jwtToken = request.getHeader("Authorization").substring(7);
-        return webClient.build()
-                .get()
-                .uri("http://localhost:8090/api/posts/pagination",
-                        uriBuilder -> uriBuilder
-                                .queryParam("offset", offset)
-                                .queryParam("limit", limit)
-                                .queryParam("sort", sort)
-                                .build())
-                .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<RestResponsePage<PostDto>>() {
-                })
-                .block();
-    }
-    private User getUserByUsername(String username) {
-        return userRepository.findUserByUsername(username);
-    }
-    private Optional<User> getUserById(Integer id) {
-        return userRepository.findById(id);
-    }
-
+            HttpServletRequest request,
+            Integer offset, Integer limit, PostSort sort);
 }

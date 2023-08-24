@@ -4,6 +4,7 @@ import artem.strelcov.apigateway.dto.AuthenticationRequest;
 import artem.strelcov.apigateway.dto.AuthenticationResponse;
 import artem.strelcov.apigateway.dto.RegisterRequest;
 import artem.strelcov.apigateway.service.AuthenticationService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/authentication")
 @RequiredArgsConstructor
 @Validated
+@Tag(name = "Authentication-service")
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
