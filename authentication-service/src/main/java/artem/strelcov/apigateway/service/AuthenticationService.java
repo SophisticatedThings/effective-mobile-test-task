@@ -50,7 +50,7 @@ public class AuthenticationService {
 
         var jwtToken = jwtService.generateToken(user);
 
-        WebClient.create("subscriptions-service/api/subscriptions/replicate")
+        WebClient.create("http://localhost:8085/api/subscriptions/replicate")
                 .post()
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
                 .accept(MediaType.APPLICATION_JSON)
