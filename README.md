@@ -8,10 +8,12 @@
 1. Скачать zip архив с проектом. После откройте проект в Intellij Idea Ultimate.
 2. Открыть файл docker-compose в меню проекта. Запустить оба контейнера. Перейти в браузере по адресу http://localhost:9000, логин и пароль
 minioadmin после создать бакет images
-4. Запустите микросервис Authentication-service
-5. Запустите микросервис Posts-service
-6. Запустите микросервис Subscriptions-service
-7. Для взаимодействия с приложением требуется открыть три ссылки на swagger UI,каждая на свой микросервис:
+3. Если на каком либо из следующих сервисов приложение будет говорить, что порт занят - поменяйте в application.properties и config/OpenApiConfig соответсвующего сервиса порт на любой другой
+4. В правой вкладке Intellij откройте Database и создайте внутри app@localhost еще две базы данных: subscriptions и posts
+5. Запустите микросервис Authentication-service
+6. Запустите микросервис Posts-service
+7. Запустите микросервис Subscriptions-service
+8. Для взаимодействия с приложением требуется открыть три ссылки на swagger UI,каждая на свой микросервис:
 
 http://localhost:8080/swagger-ui/index.html#
 
