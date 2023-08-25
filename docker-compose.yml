@@ -17,7 +17,7 @@ services:
       - '9000:9000'
     volumes:
       - minio-data:/minio
- postgres-app:
+  postgres-app:
     container_name: postgres-app
     image: postgres
     environment:
