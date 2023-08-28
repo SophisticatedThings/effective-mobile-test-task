@@ -9,6 +9,7 @@ import artem.strelcov.apigateway.exception_handling.UserHandling.UsernameNotFoun
 import artem.strelcov.apigateway.model.User;
 import artem.strelcov.apigateway.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,7 +29,6 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-
     /**
      * Функция создает пользователя. Webclient используется для того, чтобы
      * создать копию учетных данных для другого сервиса - subscriptions. Он будет их использовать
@@ -50,7 +50,7 @@ public class AuthenticationService {
 
         var jwtToken = jwtService.generateToken(user);
 
-        WebClient.create("http://localhost:8085/api/subscriptions/replicate")
+        WebClient.create("http://subscriptions-service:8085/api/subscriptions/replicate")
                 .post()
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
                 .accept(MediaType.APPLICATION_JSON)

@@ -223,7 +223,7 @@ public class PostServiceImpl implements PostService{
 
         String jwtToken = request.getHeader("Authorization").substring(7);
         return webClient.build().get()
-                .uri("http://localhost:8085/api/subscriptions/{username}",
+                .uri("http://subscriptions-service:8085/api/subscriptions/{username}",
                         uriBuilder -> uriBuilder
                                 .build(username))
                 .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))

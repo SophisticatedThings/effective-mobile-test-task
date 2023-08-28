@@ -131,7 +131,7 @@ public class UserServiceImp implements UserService{
         for(User author : subscriptions) {
                 try {
                     PostDto[] posts = webClient.build().get()
-                            .uri("http://localhost:8090/api/posts/{username}",
+                            .uri("http://posts-service:8090/api/posts/{username}",
                                     uriBuilder -> uriBuilder
                                             .build(author.getUsername()))
                             .headers(httpHeaders -> httpHeaders.setBearerAuth(jwtToken))
@@ -167,7 +167,7 @@ public class UserServiceImp implements UserService{
         String jwtToken = request.getHeader("Authorization").substring(7);
         return webClient.build()
                 .get()
-                .uri("http://localhost:8090/api/posts/pagination",
+                .uri("http://posts-service:8090/api/posts/pagination",
                         uriBuilder -> uriBuilder
                                 .queryParam("offset", offset)
                                 .queryParam("limit", limit)

@@ -1,22 +1,19 @@
-volumes:
-
-  minio-data:
-    driver: local
+version: '3.7'
 
 services:
   ## Minio config
   minio:
     image: minio/minio:latest
-    container_name: minio
+    command: server --console-address ":9001" /data/
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-    command: server ~/minio --console-address :9090
-    ports:
-      - '9090:9090'
-      - '9000:9000'
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ACCESS_KEY_FILE: access_key
+      MINIO_SECRET_KEY_FILE: secret_key
+      SUB_URL: http://subscriptions-service:8085
     volumes:
-      - minio-data:/minio
+      - minio_storage:/data
+
   postgres-app:
     container_name: postgres-app
     image: postgres
@@ -27,9 +24,120 @@ services:
       - PGDATA=/data/postgres
     volumes:
       - ./postgres-app:/data/postgres
-    expose:
-      - "5432"
     ports:
       - "5432:5432"
-    command: -p 5432
     restart: unless-stopped
+
+  flyway-app:
+    image: flyway/flyway:latest
+    command: -configFiles=/flyway/conf/flyway.config -locations=filesystem:/flyway/sql -connectRetries=60 migrate
+    volumes:
+      - ./sql_versions_app:/flyway/sql
+      - ./docker-flyway-app.config:/flyway/conf/flyway.config
+    depends_on:
+      - postgres-app
+
+  authentication-service:
+    container_name: authentication-service
+    hostname: localhost
+    image: sophisticatedthings/authentication-service:latest
+    pull_policy: always
+    environment:
+      - DB_URL=postgres-app
+      - DB_USER=admin
+      - DB_PASSWORD=admin
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-app
+    restart: unless-stopped
+
+  postgres-posts:
+    container_name: postgres-posts
+    image: postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_DB=posts
+      - POSTGRES_PASSWORD=admin
+      - PGDATA=/data/postgres
+    volumes:
+      - ./postgres-posts:/data/postgres
+    expose:
+      - "5431"
+    ports:
+      - "5431:5431"
+    command: -p 5431
+    restart: unless-stopped
+
+  flyway-posts:
+    image: flyway/flyway:latest
+    command: -configFiles=/flyway/conf/flyway-posts.config -locations=filesystem:/flyway/sql-posts -connectRetries=60 migrate
+    volumes:
+      - ./sql_versions_posts:/flyway/sql-posts
+      - ./docker-flyway-posts.config:/flyway/conf/flyway-posts.config
+    depends_on:
+      - postgres-posts
+
+  posts-service:
+    container_name: posts-service
+    hostname: localhost
+    image: sophisticatedthings/posts-service:latest
+    pull_policy: always
+    environment:
+      - DB_URL_POSTS=postgres-posts
+      - DB_USER_POSTS=admin
+      - DB_PASSWORD_POSTS=admin
+      - MINIO_URL= http://minio:9000
+      - ACCESS_KEY=minioadmin
+      - SECRET_KEY=minioadmin
+      - BUCKET_NAME=images
+    ports:
+      - "8090:8090"
+    depends_on:
+      - postgres-posts
+      - minio
+    restart: unless-stopped
+
+  postgres-subscriptions:
+    container_name: postgres-subscriptions
+    image: postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_DB=subscriptions
+      - POSTGRES_PASSWORD=admin
+      - PGDATA=/data/postgres
+    volumes:
+      - ./postgres-subscriptions:/data/postgres
+    expose:
+      - "5433"
+    ports:
+      - "5433:5433"
+    command: -p 5433
+    restart: unless-stopped
+
+  flyway-subscriptions:
+    image: flyway/flyway:latest
+    command: -configFiles=/flyway/conf/flyway-subscriptions.config -locations=filesystem:/flyway/sql-subscriptions -connectRetries=60 migrate
+    volumes:
+      - ./sql_versions_subscriptions:/flyway/sql-subscriptions
+      - ./docker-flyway-subscriptions.config:/flyway/conf/flyway-subscriptions.config
+    depends_on:
+      - postgres-subscriptions
+
+  subscriptions-service:
+    container_name: subscriptions-service
+    hostname: localhost
+    image: sophisticatedthings/subscriptions-service:latest
+    pull_policy: always
+    environment:
+      - DB_URL_SUBSCRIPTIONS=postgres-subscriptions
+      - DB_USER_SUBSCRIPTIONS=admin
+      - DB_PASSWORD_SUBSCRIPTIONS=admin
+    ports:
+      - "8085:8085"
+    depends_on:
+      - postgres-subscriptions
+    restart: unless-stopped
+
+volumes:
+  minio_storage:
