@@ -2,6 +2,9 @@
 Целью проекта ставится разработка REST API, позволяющего пользователям регестрироваться, входить в систему, создавать посты, переписываться,
 подписываться на других пользователей и получать свою ленту активности.
 
+# Использованные технологии
+Spring Boot, Spring Cloud, Spring Security, JWT token, Spring Data, PostgreSQL, Minio, 
+Flyway, Docker, OpenAPI, Микросервисная архитектура.
 # Архитектура приложения
 ![Arc_diagram](docs/effective-mobile.png)
 
